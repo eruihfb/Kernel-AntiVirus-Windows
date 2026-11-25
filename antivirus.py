@@ -44,7 +44,7 @@ def check_virustotal(file_hash):
     config = load_config()
     api_key = config.get("vt_api_key")
     if not api_key:
-        print("[-] No VirusTotal API key configured. Run 'kv config --key <YOUR_KEY>' first.")
+        print("[-] No VirusTotal API key configured. Run 'python antivirus.py config --key <YOUR_KEY>' first.")
         return None
 
     url = f"https://www.virustotal.com/api/v3/files/{file_hash}"
@@ -79,9 +79,30 @@ def audit_processes():
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
             pass
 
+def audit_network():
+    print("[+] Auditing active network connections...")
+    print(f"{'PROTO':<6} | {'LOCAL ADDRESS':<25} | {'REMOTE ADDRESS':<25} | {'STATUS'}")
+    print("-" * 65)
+    for conn in psutil.net_connections(kind='inet'):
+        laddr = f"{conn.laddr.ip}:{conn.laddr.port}" if conn.laddr else ""
+        raddr = f"{conn.raddr.ip}:{conn.raddr.port}" if conn.raddr else "N/A"
+        proto = "TCP" if conn.type == 1 else "UDP"
+        print(f"{proto:<6} | {laddr:<25} | {raddr:<25} | {conn.status}")
+
 if __name__ == "__main__":
-    if len(sys.argv) > 1 and sys.argv[1] == "procs":
-        audit_processes()
+    if len(sys.argv) > 1:
+        cmd = sys.argv[1]
+        if cmd == "procs":
+            audit_processes()
+        elif cmd == "net":
+            audit_network()
+        elif cmd == "config" and len(sys.argv) > 3 and sys.argv[2] == "--key":
+            cfg = load_config()
+            cfg["vt_api_key"] = sys.argv[3]
+            save_config(cfg)
+            print("[+] VirusTotal API key saved successfully.")
+        else:
+            print("Unknown command. Usage: python antivirus.py [procs|net|config --key <KEY>]")
     else:
         print("Kernel-AntiVirus (Windows Port) loaded.")
-        print("Usage: python antivirus.py procs")
+        print("Usage: python antivirus.py [procs | net | config]")
